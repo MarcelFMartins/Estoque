@@ -91,7 +91,7 @@ df_view = df.copy()
 df_view["Preço Unitário"] = df_view["Preço Unitário"].apply(moeda_br)
 df_view["Valor Total"] = df_view["Valor Total"].apply(moeda_br)
 df_view["Custo Médio"] = df_view["Custo Médio"].apply(moeda_br)
-df_view["Valor em Estoque"] = df_view["Valor em Estoque"].apply(moeda_br)
+df_view["Valor Total em Estoque"] = df_view["Valor Total em Estoque"].apply(moeda_br)
 st.dataframe(
     df_view,
     column_config={
