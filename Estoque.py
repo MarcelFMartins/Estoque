@@ -59,169 +59,102 @@ def moeda_br(valor):
 # CADASTRAR MOVIMENTAÇÃO
 @st.dialog("Cadastrar Movimentação")
 def cadastrar_produto():
-
     data_mov = st.date_input("Data", value=date.today())
-
+    
     try:
         df = pd.read_excel(arquivo)
-
-        df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
-        df["Produto"] = df["Produto"].astype(str)
-        df["Tipo"] = df["Tipo"].astype(str)
-
         produtos_cadastrados = df["Produto"].dropna().unique().tolist()
-
     except:
-        df = pd.DataFrame(columns=[
-            "Data","Produto","Tipo","Quantidade","Preço Unitário",
-            "Valor Total","Quantidade em Estoque","Custo Médio","Valor Total em Estoque"
-        ])
-        produtos_cadastrados = ["Morango","Tomate"]
+        produtos_cadastrados = ["Morango", "Tomate"]
 
     produto_mov = st.selectbox("Produto", produtos_cadastrados)
-    tipo_mov = st.selectbox("Tipo", ["Compra","Venda"])
+    tipo_mov = st.selectbox("Tipo", ["Compra", "Venda"])
+    
+    # Coluna dinâmica conforme sua necessidade
+    label_contato = "Fornecedor" if tipo_mov == "Compra" else "Cliente"
+    contato_mov = st.text_input(label_contato)
+    
     quantidade_mov = st.number_input("Quantidade", min_value=1)
     preco_mov = st.number_input("Preço Unitário", min_value=0.0, format="%.2f")
 
     if st.button("Salvar Cadastro"):
-
+        valor_total = quantidade_mov * preco_mov
+        nova_linha = pd.DataFrame([{
+            "Data": pd.to_datetime(data_mov),
+            "Produto": produto_mov,
+            "Tipo": tipo_mov,
+            "Cliente/Fornecedor": contato_mov,
+            "Quantidade": quantidade_mov,
+            "Preço Unitário": preco_mov,
+            "Valor Total": valor_total
+        }])
+        
         try:
+            df_atual = pd.read_excel(arquivo)
+            df_novo = pd.concat([df_atual, nova_linha], ignore_index=True)
+        except:
+            df_novo = nova_linha
 
-            valor_total = quantidade_mov * preco_mov
+        df_final = recalcular_estoque(df_novo)
+        df_final.to_excel(arquivo, index=False)
+        st.success("Cadastrado com sucesso!")
+        st.rerun()
 
-            nova_linha = pd.DataFrame([{
-                "Data": pd.to_datetime(data_mov),
-                "Produto": produto_mov,
-                "Tipo": tipo_mov,
-                "Quantidade": quantidade_mov,
-                "Preço Unitário": preco_mov,
-                "Valor Total": valor_total
-            }])
-
-            df = pd.concat([df, nova_linha], ignore_index=True)
-
-            df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
-            df["Produto"] = df["Produto"].astype(str)
-
-            df = df.sort_values(by=["Produto","Data"], ascending=[True,True]).reset_index(drop=True)
-
-            df["Quantidade em Estoque"] = 0.0
-            df["Custo Médio"] = 0.0
-            df["Valor Total em Estoque"] = 0.0
-
-            estoques = {}
-            custos = {}
-
-            for i, row in df.iterrows():
-
-                prod = row["Produto"]
-                tipo = row["Tipo"]
-                qtd = float(row["Quantidade"])
-                valor = float(row["Valor Total"])
-
-                estoque_ant = estoques.get(prod,0)
-                custo_ant = custos.get(prod,0)
-
-                if tipo == "Compra":
-
-                    novo_estoque = estoque_ant + qtd
-
-                    custo_medio = (
-                        (custo_ant * estoque_ant + valor) / novo_estoque
-                        if novo_estoque != 0 else 0
-                    )
-
-                else:
-
-                    novo_estoque = estoque_ant - qtd
-                    custo_medio = custo_ant
-
-                estoques[prod] = novo_estoque
-                custos[prod] = custo_medio
-
-                df.at[i,"Quantidade em Estoque"] = novo_estoque
-                df.at[i,"Custo Médio"] = custo_medio
-                df.at[i,"Valor Total em Estoque"] = novo_estoque * custo_medio
-
-            df.to_excel(arquivo, index=False)
-
-            st.success("Produto cadastrado com sucesso!")
-            st.rerun()
-
-        except Exception as e:
-            st.error(f"Erro ao salvar: {e}")
-
-# CADASTRAR DESPESA
 @st.dialog("Cadastrar Despesa")
 def cadastrar_despesa():
-
     data_desp = st.date_input("Data", value=date.today())
     descricao = st.text_input("Descrição")
+    fornecedor_desp = st.text_input("Fornecedor")
     categoria = st.selectbox("Categoria", ["Combustível", "Alimentação", "Hotel", "Despesas com Funcionário", "Outros"])
     valor = st.number_input("Valor", min_value=0.0)
 
     if st.button("Salvar Despesa"):
-
-        nova_despesa = pd.DataFrame({
-            "Data": [data_desp],
+        nova_desp = pd.DataFrame({
+            "Data": [pd.to_datetime(data_desp)],
             "Descrição": [descricao],
+            "Fornecedor": [fornecedor_desp],
             "Categoria": [categoria],
             "Valor": [valor]
         })
-
         try:
-            despesas = pd.read_excel("Despesas.xlsx")
-            despesas = pd.concat([despesas, nova_despesa], ignore_index=True)
+            df_d = pd.read_excel(arquivo_desp)
+            df_d = pd.concat([df_d, nova_desp], ignore_index=True)
         except:
-            despesas = nova_despesa
-
-        despesas.to_excel("Despesas.xlsx", index=False)
-
-        st.success("Despesa cadastrada!")
+            df_d = nova_desp
+        df_d.to_excel(arquivo_desp, index=False)
+        st.success("Despesa salva!")
         st.rerun()
 
 def recalcular_estoque(df):
-
-    df = df.sort_values(["Produto","Data"]).reset_index(drop=True)
-
-    df["Quantidade em Estoque"] = 0
-    df["Custo Médio"] = 0
-    df["Valor Total em Estoque"] = 0
-
+    df = df.sort_values(["Produto", "Data"]).reset_index(drop=True)
+    df["Quantidade em Estoque"] = 0.0
+    df["Custo Médio"] = 0.0
+    df["Valor Total em Estoque"] = 0.0
+    
     estoques = {}
     custos = {}
 
     for i, row in df.iterrows():
-
         prod = row["Produto"]
         tipo = row["Tipo"]
-        qtd = row["Quantidade"]
-        valor = row["Valor Total"]
+        qtd = float(row["Quantidade"])
+        valor = float(row["Valor Total"])
 
-        estoque_ant = estoques.get(prod,0)
-        custo_ant = custos.get(prod,0)
+        est_ant = estoques.get(prod, 0)
+        custo_ant = custos.get(prod, 0)
 
         if tipo == "Compra":
-
-            novo_estoque = estoque_ant + qtd
-
-            custo_medio = (
-                (custo_ant * estoque_ant + valor) / novo_estoque
-                if novo_estoque != 0 else 0
-            )
-
+            novo_est = est_ant + qtd
+            custo_med = ((custo_ant * est_ant) + valor) / novo_est if novo_est != 0 else 0
         else:
+            novo_est = est_ant - qtd
+            custo_med = custo_ant
 
-            novo_estoque = estoque_ant - qtd
-            custo_medio = custo_ant
-
-        estoques[prod] = novo_estoque
-        custos[prod] = custo_medio
-
-        df.at[i,"Quantidade em Estoque"] = novo_estoque
-        df.at[i,"Custo Médio"] = custo_medio
-        df.at[i,"Valor Total em Estoque"] = novo_estoque * custo_medio
-
+        estoques[prod] = novo_est
+        custos[prod] = custo_med
+        df.at[i, "Quantidade em Estoque"] = novo_est
+        df.at[i, "Custo Médio"] = custo_med
+        df.at[i, "Valor Total em Estoque"] = novo_est * custo_med
     return df
 
 @st.dialog("Excluir Movimentação")
@@ -449,6 +382,7 @@ col2.metric("📦 Custo das Compras", moeda_br(cmv))
 col3.metric("📉 Despesas", moeda_br(despesa_total))
 
 col4.metric("📈 Lucro Líquido", moeda_br(lucro_liquido))
+
 
 
 
