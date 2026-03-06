@@ -3,8 +3,50 @@ import pandas as pd
 import altair as alt
 from datetime import date
 from openpyxl import load_workbook
+import streamlit_authenticator as stauth
 
 st.set_page_config(layout="wide")
+
+# USUÁRIOS
+usuarios = {
+    "usernames": {
+        "admin": {
+            "name": "Administrador",
+            "password": "1234"
+        },
+        "marcel": {
+            "name": "Marcel",
+            "password": "1234"
+        },
+        "matheus": {
+            "name": "Matheus",
+            "password": "1234"
+        }
+    }
+}
+
+# AUTENTICADOR
+authenticator = stauth.Authenticate(
+    usuarios,
+    "estoque_cookie",
+    "abcdef",
+    cookie_expiry_days=30
+)
+
+# TELA DE LOGIN
+authenticator.login("main")
+
+# VERIFICA STATUS
+if st.session_state["authentication_status"] == False:
+    st.error("Usuário ou senha incorretos")
+    st.stop()
+
+elif st.session_state["authentication_status"] == None:
+    st.warning("Digite usuário e senha")
+    st.stop()
+
+elif st.session_state["authentication_status"]:
+    name = st.session_state["name"]
 
 arquivo = "TabelaEstoque.xlsx"
 
@@ -138,34 +180,6 @@ def cadastrar_despesa():
         st.success("Despesa cadastrada!")
         st.rerun()
 
-# LOGIN
-usuarios = {
-    "admin": "1234",
-    "marcel": "1234"
-}
-
-def login():
-    st.title("🔐 Login")
-
-    usuario = st.text_input("Usuário")
-    senha = st.text_input("Senha", type="password")
-
-    if st.button("Entrar"):
-
-        if usuario in usuarios and usuarios[usuario] == senha:
-            st.session_state["logado"] = True
-            st.rerun()
-        else:
-            st.error("Usuário ou senha incorretos")
-
-
-if "logado" not in st.session_state:
-    st.session_state["logado"] = False
-
-if not st.session_state["logado"]:
-    login()
-    st.stop()
-
 def recalcular_estoque(df):
 
     df = df.sort_values(["Produto","Data"]).reset_index(drop=True)
@@ -267,6 +281,7 @@ def excluir_despesa():
         st.rerun()
 
 # SIDEBAR
+st.sidebar.write(f"👤 Usuário: {name}")
 if st.sidebar.button("➕ Cadastrar Movimentação"):
     cadastrar_produto()
 
@@ -279,9 +294,7 @@ if st.sidebar.button("💸 Cadastrar Despesa"):
 if st.sidebar.button("🗑 Excluir Despesa"):
     excluir_despesa()
 
-if st.sidebar.button("🚪 Sair"):
-    st.session_state["logado"] = False
-    st.rerun()
+authenticator.logout("🚪 Sair", "sidebar")
 
 # SISTEMA ESTOQUE
 df = pd.read_excel(arquivo)
@@ -315,12 +328,18 @@ st.subheader("Resumo")
 col1, col2, col3 = st.columns(3)
 
 col1.metric("🛒 Quantidade Vendida", f"{qtd_vendida:,}")
-col2.metric("💰 Valor Vendido", moeda_br(valor_vendido))
-col3.metric("📦 Quantidade Comprada", f"{qtd_comprada:,}")
+col2.metric("📦 Quantidade Comprada", f"{qtd_comprada:,}")
 
-col4, col5 = st.columns(2)
+estoque_atual = df.sort_values("Data").groupby("Produto").tail(1)
+quantidade_estoque = estoque_atual["Quantidade em Estoque"].sum()
 
-col4.metric("🛍️ Valor Comprado", moeda_br(valor_comprado))
+col3.metric("📦 Quantidade em Estoque", f"{int(quantidade_estoque):,}")
+
+
+col4, col5, col6 = st.columns(3)
+
+col4.metric("💰 Valor Vendido", moeda_br(valor_vendido))
+col5.metric("🛍️ Valor Comprado", moeda_br(valor_comprado))
 
 lucro = valor_vendido - valor_comprado
 
@@ -328,7 +347,7 @@ delta_cor = "normal"
 if lucro < 0:
     delta_cor = "inverse"
 
-col5.metric(
+col6.metric(
     label="📈 Lucro Bruto",
     value=f"R$ {lucro:,.2f}",
     delta=f"R$ {lucro:,.2f}",
