@@ -42,10 +42,6 @@ if authentication_status is None:
     st.warning("Digite usuário e senha")
     st.stop()
 
-if authentication_status:
-    st.sidebar.write(f"👤 Usuário: {name}")
-    authenticator.logout("Logout", "sidebar")
-
 import pandas as pd
 import altair as alt
 from datetime import date
@@ -297,6 +293,9 @@ if st.sidebar.button("💸 Cadastrar Despesa"):
 
 if st.sidebar.button("🗑 Excluir Despesa"):
     excluir_despesa()
+
+if authentication_status:
+    authenticator.logout("🚪 Logout", "sidebar")
 
 # SISTEMA ESTOQUE
 df = pd.read_excel(arquivo)
