@@ -1,9 +1,7 @@
+# USUÁRIOS
 import streamlit as st
 import streamlit_authenticator as stauth
 
-st.set_page_config(layout="wide")
-
-# USUÁRIOS
 credentials = {
     "usernames": {
         "admin": {
@@ -23,13 +21,18 @@ credentials = {
 
 authenticator = stauth.Authenticate(
     credentials,
-    "estoque_cookie",   # nome cookie
-    "abcdef123456789",  # chave secreta
+    "estoque_cookie",
+    "abcdef123456789",
     cookie_expiry_days=30
 )
 
-# LOGIN
-name, authentication_status, username = authenticator.login(location="main")
+# MOSTRAR LOGIN
+authenticator.login(location="main")
+
+# PEGAR STATUS
+authentication_status = st.session_state.get("authentication_status")
+name = st.session_state.get("name")
+username = st.session_state.get("username")
 
 if authentication_status is False:
     st.error("Usuário ou senha incorretos")
@@ -40,14 +43,15 @@ if authentication_status is None:
     st.stop()
 
 if authentication_status:
-    authenticator.logout("Logout", "sidebar")
     st.sidebar.write(f"👤 Usuário: {name}")
+    authenticator.logout("Logout", "sidebar")
 
 import pandas as pd
 import altair as alt
 from datetime import date
 from openpyxl import load_workbook
 
+st.set_page_config(layout="wide")
 arquivo = "TabelaEstoque.xlsx"
 
 

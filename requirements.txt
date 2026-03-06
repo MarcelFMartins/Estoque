@@ -1,5 +1,5 @@
 streamlit
 pandas
-openpyxl
 altair
-streamlit-authenticator
+openpyxl
+streamlit-authenticator==0.3.2
