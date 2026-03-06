@@ -40,9 +40,12 @@ authenticator = stauth.Authenticate(
 )
 
 # LOGIN
-name, authentication_status, username = authenticator.login("main")
+authenticator.login(location="main")
 
-# VERIFICAÇÃO
+authentication_status = st.session_state.get("authentication_status")
+name = st.session_state.get("name")
+username = st.session_state.get("username")
+
 if authentication_status is False:
     st.error("Usuário ou senha incorretos")
     st.stop()
@@ -50,6 +53,10 @@ if authentication_status is False:
 if authentication_status is None:
     st.warning("Digite usuário e senha")
     st.stop()
+
+if authentication_status:
+    authenticator.logout("Logout", "sidebar")
+    st.sidebar.write(f"👤 Usuário: {name}")
 
 arquivo = "TabelaEstoque.xlsx"
 
@@ -296,8 +303,6 @@ if st.sidebar.button("💸 Cadastrar Despesa"):
 
 if st.sidebar.button("🗑 Excluir Despesa"):
     excluir_despesa()
-
-authenticator.logout("🚪 Sair", "sidebar")
 
 # SISTEMA ESTOQUE
 df = pd.read_excel(arquivo)
