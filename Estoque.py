@@ -1,50 +1,35 @@
 import streamlit as st
-import pandas as pd
-import altair as alt
-from datetime import date
-from openpyxl import load_workbook
 import streamlit_authenticator as stauth
 
 st.set_page_config(layout="wide")
 
 # USUÁRIOS
-config = {
-    "credentials": {
-        "usernames": {
-            "admin": {
-                "name": "Administrador",
-                "password": "1234"
-            },
-            "marcel": {
-                "name": "Marcel",
-                "password": "1234"
-            },
-            "matheus": {
-                "name": "Matheus",
-                "password": "1234"
-            }
+credentials = {
+    "usernames": {
+        "admin": {
+            "name": "Administrador",
+            "password": "1234"
+        },
+        "marcel": {
+            "name": "Marcel",
+            "password": "1234"
+        },
+        "matheus": {
+            "name": "Matheus",
+            "password": "1234"
         }
-    },
-    "cookie": {
-        "name": "estoque_cookie",
-        "key": "abcdef123456",
-        "expiry_days": 30
     }
 }
 
 authenticator = stauth.Authenticate(
-    config["credentials"],
-    config["cookie"]["name"],
-    config["cookie"]["key"],
-    config["cookie"]["expiry_days"]
+    credentials,
+    "estoque_cookie",   # nome cookie
+    "abcdef123456789",  # chave secreta
+    cookie_expiry_days=30
 )
 
 # LOGIN
-authenticator.login(location="main")
-
-authentication_status = st.session_state.get("authentication_status")
-name = st.session_state.get("name")
-username = st.session_state.get("username")
+name, authentication_status, username = authenticator.login(location="main")
 
 if authentication_status is False:
     st.error("Usuário ou senha incorretos")
@@ -57,6 +42,11 @@ if authentication_status is None:
 if authentication_status:
     authenticator.logout("Logout", "sidebar")
     st.sidebar.write(f"👤 Usuário: {name}")
+
+import pandas as pd
+import altair as alt
+from datetime import date
+from openpyxl import load_workbook
 
 arquivo = "TabelaEstoque.xlsx"
 
