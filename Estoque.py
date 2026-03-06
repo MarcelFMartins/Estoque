@@ -345,7 +345,7 @@ col5.metric("🛍️ Valor Comprado", moeda_br(valor_comprado))
 lucro = valor_vendido - valor_comprado
 
 delta_cor = "normal"
-if lucro < 0:
+if lucro > 0:
     delta_cor = "inverse"
 
 col6.metric(
@@ -449,3 +449,4 @@ col2.metric("📦 Custo das Compras", moeda_br(cmv))
 col3.metric("📉 Despesas", moeda_br(despesa_total))
 
 col4.metric("📈 Lucro Líquido", moeda_br(lucro_liquido))
+
