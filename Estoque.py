@@ -8,45 +8,48 @@ import streamlit_authenticator as stauth
 st.set_page_config(layout="wide")
 
 # USUÁRIOS
-usuarios = {
-    "usernames": {
-        "admin": {
-            "name": "Administrador",
-            "password": "1234"
-        },
-        "marcel": {
-            "name": "Marcel",
-            "password": "1234"
-        },
-        "matheus": {
-            "name": "Matheus",
-            "password": "1234"
+config = {
+    "credentials": {
+        "usernames": {
+            "admin": {
+                "name": "Administrador",
+                "password": "1234"
+            },
+            "marcel": {
+                "name": "Marcel",
+                "password": "1234"
+            },
+            "matheus": {
+                "name": "Matheus",
+                "password": "1234"
+            }
         }
+    },
+    "cookie": {
+        "name": "estoque_cookie",
+        "key": "abcdef123456",
+        "expiry_days": 30
     }
 }
 
-# AUTENTICADOR
 authenticator = stauth.Authenticate(
-    usuarios,
-    "estoque_cookie",
-    "abcdef",
-    cookie_expiry_days=30
+    config["credentials"],
+    config["cookie"]["name"],
+    config["cookie"]["key"],
+    config["cookie"]["expiry_days"]
 )
 
-# TELA DE LOGIN
-authenticator.login("main")
+# LOGIN
+name, authentication_status, username = authenticator.login("main")
 
-# VERIFICA STATUS
-if st.session_state["authentication_status"] == False:
+# VERIFICAÇÃO
+if authentication_status is False:
     st.error("Usuário ou senha incorretos")
     st.stop()
 
-elif st.session_state["authentication_status"] == None:
+if authentication_status is None:
     st.warning("Digite usuário e senha")
     st.stop()
-
-elif st.session_state["authentication_status"]:
-    name = st.session_state["name"]
 
 arquivo = "TabelaEstoque.xlsx"
 
