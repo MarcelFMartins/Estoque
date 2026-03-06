@@ -157,7 +157,7 @@ def cadastrar_despesa():
 
     data_desp = st.date_input("Data", value=date.today())
     descricao = st.text_input("Descrição")
-    categoria = st.selectbox("Categoria", ["Aluguel", "Fornecedor", "Salário", "Marketing", "Outros"])
+    categoria = st.selectbox("Categoria", ["Combustível", "Alimentação", "Hotel", "Despesas com Funcionário", "Outros"])
     valor = st.number_input("Valor", min_value=0.0)
 
     if st.button("Salvar Despesa"):
@@ -449,6 +449,7 @@ col2.metric("📦 Custo das Compras", moeda_br(cmv))
 col3.metric("📉 Despesas", moeda_br(despesa_total))
 
 col4.metric("📈 Lucro Líquido", moeda_br(lucro_liquido))
+
 
 
 
