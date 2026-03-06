@@ -1,7 +1,7 @@
-# USUÁRIOS
 import streamlit as st
 import streamlit_authenticator as stauth
 
+# USUÁRIOS
 credentials = {
     "usernames": {
         "admin": {
@@ -28,6 +28,7 @@ authenticator = stauth.Authenticate(
 
 # MOSTRAR LOGIN
 authenticator.login(location="main")
+
 
 # PEGAR STATUS
 authentication_status = st.session_state.get("authentication_status")
@@ -84,7 +85,10 @@ def cadastrar_produto():
     preco_mov = st.number_input("Preço Unitário", min_value=0.0, format="%.2f")
 
     if st.button("Salvar Cadastro"):
-
+        if tipo_mov == "Compra":
+            contato_valor = "Fornecedor"
+        else:
+            contato_valor = "Cliente"
         try:
 
             valor_total = quantidade_mov * preco_mov
@@ -93,6 +97,7 @@ def cadastrar_produto():
                 "Data": pd.to_datetime(data_mov),
                 "Produto": produto_mov,
                 "Tipo": tipo_mov,
+                "Cliente/Fornecedor": contato_valor,
                 "Quantidade": quantidade_mov,
                 "Preço Unitário": preco_mov,
                 "Valor Total": valor_total
@@ -157,7 +162,7 @@ def cadastrar_despesa():
 
     data_desp = st.date_input("Data", value=date.today())
     descricao = st.text_input("Descrição")
-    categoria = st.selectbox("Categoria", ["Combustível", "Alimentação", "Hotel", "Despesas com Funcionário", "Outros"])
+    categoria = st.selectbox("Categoria", ["Combustível", "Alimentação", "Hotel", "Despesas com Funcionários", "Outros"])
     valor = st.number_input("Valor", min_value=0.0)
 
     if st.button("Salvar Despesa"):
@@ -165,6 +170,7 @@ def cadastrar_despesa():
         nova_despesa = pd.DataFrame({
             "Data": [data_desp],
             "Descrição": [descricao],
+            "Fornecedor": ["Fornecedor"],
             "Categoria": [categoria],
             "Valor": [valor]
         })
@@ -351,24 +357,28 @@ if lucro < 0:
 col6.metric(
     label="📈 Lucro Bruto",
     value=f"R$ {lucro:,.2f}",
-    delta=f"{lucro:,.2f}",
-    delta_color="normal"
+    delta=f"R$ {lucro:,.2f}",
+    delta_color=delta_cor
 )
 
 # TABELA
 df_view = df.copy()
-
+colunas_visiveis_estoque = [
+    "Data", "Produto", "Tipo", "Cliente/Fornecedor", 
+    "Quantidade", "Preço Unitário", "Valor Total", 
+    "Quantidade em Estoque", "Custo Médio", "Valor Total em Estoque"
+]
 df_view["Preço Unitário"] = df_view["Preço Unitário"].apply(moeda_br)
 df_view["Valor Total"] = df_view["Valor Total"].apply(moeda_br)
 df_view["Custo Médio"] = df_view["Custo Médio"].apply(moeda_br)
 df_view["Valor Total em Estoque"] = df_view["Valor Total em Estoque"].apply(moeda_br)
-
 st.dataframe(
-    df_view,
+    df_view[colunas_visiveis_estoque], 
     column_config={
         "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY")
     },
-    use_container_width=True
+    use_container_width=True,
+    hide_index=True
 )
 
 # VENDAS POR PRODUTO
@@ -412,10 +422,12 @@ st.title("📉 Despesas")
 despesas_view = despesas.copy()
 
 if not despesas_view.empty:
+    colunas_visiveis_desp = ["Data", "Descrição", "Fornecedor", "Categoria", "Valor"]
     despesas_view["Data"] = despesas_view["Data"].dt.strftime("%d/%m/%Y")
     despesas_view["Valor"] = despesas_view["Valor"].apply(moeda_br)
-
-st.dataframe(despesas_view, use_container_width=True)
+    st.dataframe(despesas_view[colunas_visiveis_desp], use_container_width=True, hide_index=True)
+else:
+    st.info("Nenhuma despesa cadastrada.")
 
 # GRAFICO DESPESAS
 st.subheader("Despesas por Categoria")
@@ -447,8 +459,61 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("💰 Receita", moeda_br(receita_total))
 col2.metric("📦 Custo das Compras", moeda_br(cmv))
 col3.metric("📉 Despesas", moeda_br(despesa_total))
-
 col4.metric("📈 Lucro Líquido", moeda_br(lucro_liquido))
 
+# CONTAS A PAGAR E RECEBER
+st.divider()
+st.title("🏦 Fluxo de Caixa")
 
+receber_total = vendas["Valor Total"].sum()
 
+pagar_compras = compras["Valor Total"].sum()
+pagar_despesas = despesas["Valor"].sum()
+pagar_total = pagar_compras + pagar_despesas
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    st.subheader("💰 A Receber")
+    st.write("*(Total de Vendas)*")
+    st.metric("Total Clientes", moeda_br(receber_total))
+
+with c2:
+    st.subheader("💸 A Pagar")
+    st.write("*(Compras + Despesas)*")
+    st.metric("Total Fornecedores", moeda_br(pagar_total), delta_color="inverse")
+
+with c3:
+    st.subheader("⚖️ Saldo Previsto")
+    st.write("*(Receber - Pagar)*")
+    saldo_final = receber_total - pagar_total
+    st.metric("Resultado", moeda_br(saldo_final), delta=f"{saldo_final:,.2f}")
+
+tab1, tab2 = st.tabs(["A Receber", "A Pagar"])
+
+with tab1:
+    st.markdown("### Vendas por Data (Clientes)")
+    if not vendas.empty:
+        df_receber = vendas[["Data", "Produto", "Quantidade", "Valor Total"]].copy()
+        df_receber["Data"] = df_receber["Data"].dt.strftime("%d/%m/%Y")
+        df_receber["Valor Total"] = df_receber["Valor Total"].apply(moeda_br)
+        st.dataframe(df_receber, use_container_width=True, hide_index=True)
+    else:
+        st.info("Sem vendas registradas.")
+
+with tab2:
+    st.markdown("### Compras e Despesas (Fornecedores)")
+
+    if not compras.empty or not despesas.empty:
+        comp_fin = compras[["Data", "Produto", "Valor Total"]].rename(columns={"Produto": "Descrição", "Valor Total": "Valor"})
+        desp_fin = despesas[["Data", "Descrição", "Valor"]]
+       
+        df_pagar_total = pd.concat([comp_fin, desp_fin], ignore_index=True)
+        df_pagar_total = df_pagar_total.sort_values("Data", ascending=False)
+        
+        df_pagar_total["Data"] = pd.to_datetime(df_pagar_total["Data"]).dt.strftime("%d/%m/%Y")
+        df_pagar_total["Valor"] = df_pagar_total["Valor"].apply(moeda_br)
+        
+        st.dataframe(df_pagar_total, use_container_width=True, hide_index=True)
+    else:
+        st.info("Sem contas a pagar registradas.")
