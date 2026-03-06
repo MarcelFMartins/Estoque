@@ -351,7 +351,7 @@ if lucro < 0:
 col6.metric(
     label="📈 Lucro Bruto",
     value=f"R$ {lucro:,.2f}",
-    delta=f"R$ {lucro:,.2f}",
+    delta=f"{lucro:,.2f}",
     delta_color=delta_cor
 )
 
@@ -447,4 +447,5 @@ col1, col2, col3, col4 = st.columns(4)
 col1.metric("💰 Receita", moeda_br(receita_total))
 col2.metric("📦 Custo das Compras", moeda_br(cmv))
 col3.metric("📉 Despesas", moeda_br(despesa_total))
+
 col4.metric("📈 Lucro Líquido", moeda_br(lucro_liquido))
