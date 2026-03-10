@@ -516,24 +516,41 @@ df_ordenado = df.sort_values("Data")
 valor_estoque = df_ordenado.iloc[-1]["Valor Total em Estoque"]
 
 # RESUMO
-st.subheader("Resumo")
+st.subheader("📊 Resumo")
 
-col1, col2, col3 = st.columns(3)
+produtos = df["Produto"].unique()
 
-col1.metric("🛒 Quantidade Vendida", f"{qtd_vendida:,}")
-col2.metric("📦 Quantidade Comprada", f"{qtd_comprada:,}")
+for produto in produtos:
 
-estoque_atual = df.sort_values("Data").groupby("Produto").tail(1)
-quantidade_estoque = estoque_atual["Quantidade em Estoque"].sum()
+    df_prod = df[df["Produto"] == produto]
 
-col3.metric("📦 Quantidade em Estoque", f"{int(quantidade_estoque):,}")
+    vendas_prod = df_prod[df_prod["Tipo"] == "Venda"]
+    compras_prod = df_prod[df_prod["Tipo"] == "Compra"]
+
+    qtd_vendida = vendas_prod["Quantidade"].sum()
+    qtd_comprada = compras_prod["Quantidade"].sum()
+
+    estoque_atual = df_prod.sort_values("Data").iloc[-1]["Quantidade em Estoque"]
+
+    valor_vendido_prod = vendas_prod["Valor Total"].sum()
+
+    st.markdown(f"### {produto}")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("🛒 Vendido", f"{int(qtd_vendida):,}")
+    col2.metric("📦 Comprado", f"{int(qtd_comprada):,}")
+    col3.metric("📦 Estoque", f"{int(estoque_atual):,}")
+    col4.metric("💰 Valor Vendido", moeda_br(valor_vendido_prod))
+
+    st.divider()
 
 
-col4, col5, col6 = st.columns(3)
+col5, col6, col7 = st.columns(3)
 
-col4.metric("💰 Valor Vendido", moeda_br(valor_vendido))
-col5.metric("🛍️ Valor Comprado", moeda_br(valor_comprado))
-col6.metric("💵 Valor em Estoque", moeda_br(valor_estoque))
+col5.metric("💰 Valor Vendido", moeda_br(valor_vendido))
+col6.metric("🛍️ Valor Comprado", moeda_br(valor_comprado))
+col7.metric("💵 Valor em Estoque", moeda_br(valor_estoque))
 
 
 
