@@ -516,7 +516,7 @@ df_ordenado = df.sort_values("Data")
 valor_estoque = df_ordenado.iloc[-1]["Valor Total em Estoque"]
 
 # RESUMO
-st.subheader("📊 Resumo")
+st.subheader("Resumo por Produto")
 
 produtos = df["Produto"].unique()
 
@@ -528,29 +528,41 @@ for produto in produtos:
     compras_prod = df_prod[df_prod["Tipo"] == "Compra"]
 
     qtd_vendida = vendas_prod["Quantidade"].sum()
+    valor_vendido = vendas_prod["Valor Total"].sum()
+
     qtd_comprada = compras_prod["Quantidade"].sum()
+    valor_comprado = compras_prod["Valor Total"].sum()
 
     estoque_atual = df_prod.sort_values("Data").iloc[-1]["Quantidade em Estoque"]
+    valor_estoque = df_prod.sort_values("Data").iloc[-1]["Valor Total em Estoque"]
 
-    valor_vendido_prod = vendas_prod["Valor Total"].sum()
+    st.markdown(f"## {produto}")
 
-    st.markdown(f"### {produto}")
+    col1, col2, col3 = st.columns(3)
 
-    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown("### 🛒 Vendas")
+        st.metric("Quantidade", f"{int(qtd_vendida):,}")
+        st.metric("Valor", moeda_br(valor_vendido))
 
-    col1.metric("🛒 Vendido", f"{int(qtd_vendida):,}")
-    col2.metric("📦 Comprado", f"{int(qtd_comprada):,}")
-    col3.metric("📦 Estoque", f"{int(estoque_atual):,}")
-    col4.metric("💰 Valor Vendido", moeda_br(valor_vendido_prod))
+    with col2:
+        st.markdown("### 📥 Compras")
+        st.metric("Quantidade", f"{int(qtd_comprada):,}")
+        st.metric("Valor", moeda_br(valor_comprado))
+
+    with col3:
+        st.markdown("### 📦 Estoque")
+        st.metric("Quantidade", f"{int(estoque_atual):,}")
+        st.metric("Valor", moeda_br(valor_estoque))
 
     st.divider()
 
 
 col5, col6, col7 = st.columns(3)
 
-col5.metric("💰 Valor Vendido", moeda_br(valor_vendido))
-col6.metric("🛍️ Valor Comprado", moeda_br(valor_comprado))
-col7.metric("💵 Valor em Estoque", moeda_br(valor_estoque))
+col5.metric("💰 Valor Total Vendido", moeda_br(valor_vendido))
+col6.metric("🛍️ Valor Total Comprado", moeda_br(valor_comprado))
+col7.metric("💵 Valor Total em Estoque", moeda_br(valor_estoque))
 
 
 
