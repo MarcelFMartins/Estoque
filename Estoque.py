@@ -74,21 +74,52 @@ def cadastrar_produto():
 
     except:
         df = pd.DataFrame(columns=[
-            "Data","Produto","Tipo","Quantidade","Preço Unitário",
+            "Data","Produto","Tipo","Cliente/Fornecedor","Quantidade","Preço Unitário",
             "Valor Total","Quantidade em Estoque","Custo Médio","Valor Total em Estoque"
         ])
+
         produtos_cadastrados = ["Morango","Tomate"]
 
     produto_mov = st.selectbox("Produto", produtos_cadastrados)
     tipo_mov = st.selectbox("Tipo", ["Compra","Venda"])
+
+    # CLIENTE OU FORNECEDOR
+    if tipo_mov == "Compra":
+
+        try:
+            fornecedores = pd.read_excel("Fornecedores.xlsx")
+            contato_valor = st.selectbox("Fornecedor", fornecedores["Nome"])
+        except:
+            st.warning("Cadastre um fornecedor primeiro.")
+            st.stop()
+
+    else:
+
+        try:
+            clientes = pd.read_excel("Clientes.xlsx")
+            contato_valor = st.selectbox("Cliente", clientes["Nome"])
+        except:
+            st.warning("Cadastre um cliente primeiro.")
+            st.stop()
+
     quantidade_mov = st.number_input("Quantidade", min_value=1)
     preco_mov = st.number_input("Preço Unitário", min_value=0.0, format="%.2f")
 
+    forma_pagamento = st.selectbox("Forma de Pagamento", ["À Vista", "A Prazo"])
+
+    if forma_pagamento == "A Prazo":
+
+        parcelas = st.number_input("Número de Parcelas", min_value=2)
+
+        data_recebimento = st.date_input("Data do Primeiro Vencimento")
+
+    else:
+
+        parcelas = 1
+        data_recebimento = data_mov
+
     if st.button("Salvar Cadastro"):
-        if tipo_mov == "Compra":
-            contato_valor = "Fornecedor"
-        else:
-            contato_valor = "Cliente"
+
         try:
 
             valor_total = quantidade_mov * preco_mov
@@ -100,7 +131,11 @@ def cadastrar_produto():
                 "Cliente/Fornecedor": contato_valor,
                 "Quantidade": quantidade_mov,
                 "Preço Unitário": preco_mov,
-                "Valor Total": valor_total
+                "Valor Total": valor_total,
+                "Forma Pagamento": forma_pagamento,
+                "Parcelas": parcelas,
+                "Data Recebimento": data_recebimento,
+                "Status": "Recebido" if forma_pagamento == "À Vista" else "Pendente"
             }])
 
             df = pd.concat([df, nova_linha], ignore_index=True)
@@ -150,7 +185,7 @@ def cadastrar_produto():
 
             df.to_excel(arquivo, index=False)
 
-            st.success("Produto cadastrado com sucesso!")
+            st.success("Movimentação cadastrada com sucesso!")
             st.rerun()
 
         except Exception as e:
@@ -162,17 +197,50 @@ def cadastrar_despesa():
 
     data_desp = st.date_input("Data", value=date.today())
     descricao = st.text_input("Descrição")
-    categoria = st.selectbox("Categoria", ["Combustível", "Alimentação", "Hotel", "Despesas com Funcionários", "Outros"])
+
+    categoria = st.selectbox(
+        "Categoria",
+        ["Combustível", "Alimentação", "Hotel", "Despesas com Funcionários", "Outros"]
+    )
+
     valor = st.number_input("Valor", min_value=0.0)
+
+    # FORNECEDOR
+    try:
+        fornecedores = pd.read_excel("Fornecedores.xlsx")
+        fornecedor = st.selectbox("Fornecedor", fornecedores["Nome"])
+    except:
+        st.warning("Cadastre um fornecedor primeiro.")
+        st.stop()
+
+    forma_pagamento = st.selectbox("Forma de Pagamento", ["À Vista","A Prazo"])
+
+    if forma_pagamento == "A Prazo":
+
+        parcelas = st.number_input("Parcelas", min_value=1, value=1)
+
+        data_recebimento = st.date_input("Data Pagamento")
+
+        status = "Pendente"
+
+    else:
+
+        parcelas = 1
+        data_recebimento = data_desp
+        status = "Pago"
 
     if st.button("Salvar Despesa"):
 
         nova_despesa = pd.DataFrame({
             "Data": [data_desp],
             "Descrição": [descricao],
-            "Fornecedor": ["Fornecedor"],
+            "Cliente/Fornecedor": [fornecedor],
             "Categoria": [categoria],
-            "Valor": [valor]
+            "Valor": [valor],
+            "Forma Pagamento": [forma_pagamento],
+            "Parcelas": [parcelas],
+            "Data Recebimento": [data_recebimento],
+            "Status": [status]
         })
 
         try:
@@ -286,8 +354,86 @@ def excluir_despesa():
         st.success("Despesa excluída!")
         st.rerun()
 
+@st.dialog("Cadastrar Cliente")
+def cadastrar_cliente():
+
+    nome = st.text_input("Nome do Cliente")
+
+    if st.button("Salvar Cliente"):
+
+        novo = pd.DataFrame({"Nome":[nome]})
+
+        try:
+            df = pd.read_excel("Clientes.xlsx")
+            df = pd.concat([df,novo],ignore_index=True)
+        except:
+            df = novo
+
+        df.to_excel("Clientes.xlsx",index=False)
+
+        st.success("Cliente cadastrado")
+        st.rerun()
+
+@st.dialog("Cadastrar Fornecedor")
+def cadastrar_fornecedor():
+
+    nome = st.text_input("Nome do Fornecedor")
+
+    if st.button("Salvar Fornecedor"):
+
+        novo = pd.DataFrame({"Nome":[nome]})
+
+        try:
+            df = pd.read_excel("Fornecedores.xlsx")
+            df = pd.concat([df,novo],ignore_index=True)
+        except:
+            df = novo
+
+        df.to_excel("Fornecedores.xlsx",index=False)
+
+        st.success("Fornecedor cadastrado")
+        st.rerun()
+
+@st.dialog("Excluir Cliente ou Fornecedor")
+def excluir_contato():
+
+    tipo = st.selectbox("Tipo", ["Cliente", "Fornecedor"])
+
+    if tipo == "Cliente":
+
+        try:
+            df = pd.read_excel("Clientes.xlsx")
+        except:
+            st.warning("Nenhum cliente cadastrado.")
+            return
+
+    else:
+
+        try:
+            df = pd.read_excel("Fornecedores.xlsx")
+        except:
+            st.warning("Nenhum fornecedor cadastrado.")
+            return
+
+    contato = st.selectbox("Selecione para excluir", df["Nome"])
+
+    if st.button("🗑 Excluir"):
+
+        df = df[df["Nome"] != contato]
+
+        if tipo == "Cliente":
+            df.to_excel("Clientes.xlsx", index=False)
+        else:
+            df.to_excel("Fornecedores.xlsx", index=False)
+
+        st.success(f"{tipo} excluído com sucesso!")
+        st.rerun()
+
 # SIDEBAR
-st.sidebar.write(f"👤 Usuário: {name}")
+
+
+
+st.sidebar.subheader("Movimentações e Despesas")
 if st.sidebar.button("➕ Cadastrar Movimentação"):
     cadastrar_produto()
 
@@ -300,12 +446,50 @@ if st.sidebar.button("💸 Cadastrar Despesa"):
 if st.sidebar.button("🗑 Excluir Despesa"):
     excluir_despesa()
 
-if authentication_status:
-    authenticator.logout("🚪 Logout", "sidebar")
+st.sidebar.divider()
+st.sidebar.subheader("Clientes e Fornecedores")
+
+if st.sidebar.button("👤 Cadastrar Cliente"):
+    cadastrar_cliente()
+
+if st.sidebar.button("🏭 Cadastrar Fornecedor"):
+    cadastrar_fornecedor()
+
+st.sidebar.button("🗑 Excluir Cliente/Fornecedor", on_click=excluir_contato)
 
 # SISTEMA ESTOQUE
 df = pd.read_excel(arquivo)
+
+colunas_novas = ["Forma Pagamento","Parcelas","Data Recebimento","Status"]
+
+for col in colunas_novas:
+    if col not in df.columns:
+        df[col] = ""
+
 df["Data"] = pd.to_datetime(df["Data"])
+
+st.sidebar.divider()
+st.sidebar.subheader("📅 Período")
+
+data_inicio = st.sidebar.date_input(
+    "Data Inicial",
+    value=df["Data"].min()
+)
+
+data_fim = st.sidebar.date_input(
+    "Data Final",
+    value=df["Data"].max()
+)
+
+df = df[
+    (df["Data"] >= pd.to_datetime(data_inicio)) &
+    (df["Data"] <= pd.to_datetime(data_fim))
+]
+
+st.sidebar.divider()
+st.sidebar.write(f"👤 Usuário: {name}")
+if authentication_status:
+    authenticator.logout("🚪 Logout", "sidebar")
 
 st.title("📦 Sistema Estoque")
 
@@ -328,6 +512,8 @@ except:
 
 despesa_total = despesas["Valor"].sum() if not despesas.empty else 0
 
+df_ordenado = df.sort_values("Data")
+valor_estoque = df_ordenado.iloc[-1]["Valor Total em Estoque"]
 
 # RESUMO
 st.subheader("Resumo")
@@ -347,26 +533,17 @@ col4, col5, col6 = st.columns(3)
 
 col4.metric("💰 Valor Vendido", moeda_br(valor_vendido))
 col5.metric("🛍️ Valor Comprado", moeda_br(valor_comprado))
+col6.metric("💵 Valor em Estoque", moeda_br(valor_estoque))
 
-lucro = valor_vendido - valor_comprado
 
-delta_cor = "normal"
-if lucro < 0:
-    delta_cor = "inverse"
-
-col6.metric(
-    label="📈 Lucro Bruto",
-    value=f"R$ {lucro:,.2f}",
-    delta=f"R$ {lucro:,.2f}",
-    delta_color=delta_cor
-)
 
 # TABELA
 df_view = df.copy()
 colunas_visiveis_estoque = [
     "Data", "Produto", "Tipo", "Cliente/Fornecedor", 
     "Quantidade", "Preço Unitário", "Valor Total", 
-    "Quantidade em Estoque", "Custo Médio", "Valor Total em Estoque"
+    "Quantidade em Estoque", "Custo Médio", "Valor Total em Estoque",
+    "Forma Pagamento", "Parcelas", "Data Recebimento", "Status"
 ]
 df_view["Preço Unitário"] = df_view["Preço Unitário"].apply(moeda_br)
 df_view["Valor Total"] = df_view["Valor Total"].apply(moeda_br)
@@ -422,7 +599,7 @@ st.title("📉 Despesas")
 despesas_view = despesas.copy()
 
 if not despesas_view.empty:
-    colunas_visiveis_desp = ["Data", "Descrição", "Fornecedor", "Categoria", "Valor"]
+    colunas_visiveis_desp = ["Data", "Descrição", "Categoria", "Valor"]
     despesas_view["Data"] = despesas_view["Data"].dt.strftime("%d/%m/%Y")
     despesas_view["Valor"] = despesas_view["Valor"].apply(moeda_br)
     st.dataframe(despesas_view[colunas_visiveis_desp], use_container_width=True, hide_index=True)
@@ -449,7 +626,7 @@ if not despesas.empty:
 st.title("📑 DRE")
 
 receita_total = valor_vendido
-cmv = valor_comprado
+cmv = valor_comprado - valor_estoque
 
 lucro_bruto = receita_total - cmv
 lucro_liquido = lucro_bruto - despesa_total
@@ -465,10 +642,20 @@ col4.metric("📈 Lucro Líquido", moeda_br(lucro_liquido))
 st.divider()
 st.title("🏦 Fluxo de Caixa")
 
-receber_total = vendas["Valor Total"].sum()
+receber = df[(df["Tipo"] == "Venda") & (df["Status"] == "Pendente")]
+recebido = df[(df["Tipo"] == "Venda") & (df["Status"] == "Recebido")]
 
-pagar_compras = compras["Valor Total"].sum()
-pagar_despesas = despesas["Valor"].sum()
+pagar = df[(df["Tipo"] == "Compra") & (df["Status"] == "Pendente")]
+pago = df[(df["Tipo"] == "Compra") & (df["Status"] == "Pago")]
+
+despesas_pendentes = despesas[despesas["Status"] == "Pendente"]
+despesas_pagas = despesas[despesas["Status"] == "Pago"]
+
+receber_total = receber["Valor Total"].sum()
+
+pagar_compras = pagar["Valor Total"].sum()
+pagar_despesas = despesas_pendentes["Valor"].sum()
+
 pagar_total = pagar_compras + pagar_despesas
 
 c1, c2, c3 = st.columns(3)
@@ -492,28 +679,141 @@ with c3:
 tab1, tab2 = st.tabs(["A Receber", "A Pagar"])
 
 with tab1:
-    st.markdown("### Vendas por Data (Clientes)")
-    if not vendas.empty:
-        df_receber = vendas[["Data", "Produto", "Quantidade", "Valor Total"]].copy()
-        df_receber["Data"] = df_receber["Data"].dt.strftime("%d/%m/%Y")
-        df_receber["Valor Total"] = df_receber["Valor Total"].apply(moeda_br)
-        st.dataframe(df_receber, use_container_width=True, hide_index=True)
-    else:
-        st.info("Sem vendas registradas.")
+
+    st.markdown("### Clientes")
+
+    receber = df[(df["Tipo"] == "Venda") & (df["Status"] == "Pendente")]
+    recebido = df[(df["Tipo"] == "Venda") & (df["Status"] == "Recebido")]
+
+    pagar = df[(df["Tipo"] == "Compra") & (df["Status"] == "Pendente")]
+    pago = df[(df["Tipo"] == "Compra") & (df["Status"] == "Pago")]
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.subheader("🟡 A Receber")
+
+        if not receber.empty:
+
+            df_receber = receber[[
+                "Data",
+                "Cliente/Fornecedor",
+                "Produto",
+                "Quantidade",
+                "Valor Total",
+                "Forma Pagamento"
+            ]].copy()
+
+            df_receber["Data"] = df_receber["Data"].dt.strftime("%d/%m/%Y")
+            df_receber["Valor Total"] = df_receber["Valor Total"].apply(moeda_br)
+
+            st.dataframe(df_receber, use_container_width=True, hide_index=True)
+
+        else:
+            st.info("Nenhuma conta a receber.")
+
+    with col2:
+
+        st.subheader("🟢 Recebido")
+
+        if not recebido.empty:
+
+            df_recebido = recebido[[
+                "Data",
+                "Cliente/Fornecedor",
+                "Produto",
+                "Quantidade",
+                "Valor Total",
+                "Forma Pagamento"
+            ]].copy()
+
+            df_recebido["Data"] = df_recebido["Data"].dt.strftime("%d/%m/%Y")
+            df_recebido["Valor Total"] = df_recebido["Valor Total"].apply(moeda_br)
+
+            st.dataframe(df_recebido, use_container_width=True, hide_index=True)
+
+        else:
+            st.info("Nenhum recebimento registrado.")
 
 with tab2:
-    st.markdown("### Compras e Despesas (Fornecedores)")
 
-    if not compras.empty or not despesas.empty:
-        comp_fin = compras[["Data", "Produto", "Valor Total"]].rename(columns={"Produto": "Descrição", "Valor Total": "Valor"})
-        desp_fin = despesas[["Data", "Descrição", "Valor"]]
-       
-        df_pagar_total = pd.concat([comp_fin, desp_fin], ignore_index=True)
-        df_pagar_total = df_pagar_total.sort_values("Data", ascending=False)
+    st.markdown("### Fornecedores")
+
+    pagar = df[(df["Tipo"] == "Compra") & (df["Status"] == "Pendente")]
+    pago = df[(df["Tipo"] == "Compra") & (df["Status"] == "Pago")]
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.subheader("🔴 A Pagar")
+
+        if not pagar.empty:
+            df_pagar = pagar[[
+                "Data",
+                "Cliente/Fornecedor",
+                "Produto",
+                "Quantidade",
+                "Valor Total",
+                "Forma Pagamento"
+            ]].copy()
+
+            df_despesas_pend = despesas_pendentes[[
+                "Data",
+                "Cliente/Fornecedor",
+                "Descrição",
+                "Valor",
+                "Forma Pagamento"
+            ]].copy()
+
+            df_despesas_pend = df_despesas_pend.rename(columns={
+                "Descrição": "Produto",
+                "Valor": "Valor Total"
+            })
+
+            df_total_pagar = pd.concat([df_pagar, df_despesas_pend])
+
+            df_total_pagar["Data"] = df_total_pagar["Data"].dt.strftime("%d/%m/%Y")
+            df_total_pagar["Valor Total"] = df_total_pagar["Valor Total"].apply(moeda_br)
+
+            st.dataframe(df_total_pagar, use_container_width=True, hide_index=True)
         
-        df_pagar_total["Data"] = pd.to_datetime(df_pagar_total["Data"]).dt.strftime("%d/%m/%Y")
-        df_pagar_total["Valor"] = df_pagar_total["Valor"].apply(moeda_br)
-        
-        st.dataframe(df_pagar_total, use_container_width=True, hide_index=True)
-    else:
-        st.info("Sem contas a pagar registradas.")
+        else:
+            st.info("Nenhuma conta a pagar.")
+
+    with col2:
+
+        st.subheader("🟢 Pago")
+        if not pago.empty:
+            df_pago = pago[[
+                "Data",
+                "Cliente/Fornecedor",
+                "Produto",
+                "Quantidade",
+                "Valor Total",
+                "Forma Pagamento"
+            ]].copy()
+
+            df_despesas_pag = despesas_pagas[[
+                "Data",
+                "Cliente/Fornecedor",
+                "Descrição",
+                "Valor",
+                "Forma Pagamento"
+            ]].copy()
+
+            df_despesas_pag = df_despesas_pag.rename(columns={
+                "Descrição": "Produto",
+                "Valor": "Valor Total"
+            })
+
+            df_total_pago = pd.concat([df_pago, df_despesas_pag])
+
+            df_total_pago["Data"] = df_total_pago["Data"].dt.strftime("%d/%m/%Y")
+            df_total_pago["Valor Total"] = df_total_pago["Valor Total"].apply(moeda_br)
+
+            st.dataframe(df_total_pago, use_container_width=True, hide_index=True)
+
+        else:
+            st.info("Nenhum pagamento registrado.")
