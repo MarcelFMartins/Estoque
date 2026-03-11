@@ -4,17 +4,13 @@ import streamlit_authenticator as stauth
 # USUÁRIOS
 credentials = {
     "usernames": {
-        "admin": {
-            "name": "Administrador",
-            "password": "1234"
+        "root": {
+            "name": "admin",
+            "password": "root"
         },
-        "marcel": {
-            "name": "Marcel",
-            "password": "1234"
-        },
-        "matheus": {
-            "name": "Matheus",
-            "password": "1234"
+        "Christian": {
+            "name": "Christian",
+            "password": "B2uaa5cl*"
         }
     }
 }
@@ -56,6 +52,8 @@ arquivo = "TabelaEstoque.xlsx"
 def moeda_br(valor):
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+def numero_br(valor):
+    return f"{valor:,.0f}".replace(",", ".")
 
 # CADASTRAR MOVIMENTAÇÃO
 @st.dialog("Cadastrar Movimentação")
@@ -85,7 +83,18 @@ def cadastrar_produto():
         produtos_cadastrados = ["Morango","Tomate"]
 
     produto_mov = st.selectbox("Produto", produtos_cadastrados)
+
+    estoque_atual = 0
+
+    if not df.empty:
+        df_prod = df[df["Produto"] == produto_mov]
+        if not df_prod.empty:
+            estoque_atual = df_prod.sort_values("Data").iloc[-1]["Quantidade em Estoque"]
+
+    st.info(f"Estoque atual: {numero_br(estoque_atual)}")
+
     tipo_mov = st.selectbox("Tipo", ["Compra","Venda"])
+
 
     # CLIENTE OU FORNECEDOR
     if tipo_mov == "Compra":
@@ -107,6 +116,11 @@ def cadastrar_produto():
             st.stop()
 
     quantidade_mov = st.number_input("Quantidade", min_value=1)
+
+    if tipo_mov == "Venda" and quantidade_mov > estoque_atual:
+        st.error("❌ Estoque insuficiente para essa venda.")
+        st.stop()
+
     preco_mov = st.number_input("Preço Unitário", min_value=0.0, format="%.2f")
 
     forma_pagamento = st.selectbox("Forma de Pagamento", ["À Vista", "A Prazo"])
@@ -722,7 +736,10 @@ if st.sidebar.button("🗑 Excluir Produto"):
     excluir_produto()
 
 # SISTEMA ESTOQUE
-df = pd.read_excel(arquivo)
+try:
+    df = pd.read_excel(arquivo)
+except:
+    df = pd.DataFrame()
 
 colunas_novas = ["Forma Pagamento","Parcelas","Data Recebimento","Status"]
 
@@ -735,14 +752,23 @@ df["Data"] = pd.to_datetime(df["Data"])
 st.sidebar.divider()
 st.sidebar.subheader("📅 Período")
 
+df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
+
+if df["Data"].dropna().empty:
+    data_inicio_padrao = date.today()
+    data_fim_padrao = date.today()
+else:
+    data_inicio_padrao = df["Data"].min()
+    data_fim_padrao = df["Data"].max()
+
 data_inicio = st.sidebar.date_input(
     "Data Inicial",
-    value=df["Data"].min()
+    value=data_inicio_padrao
 )
 
 data_fim = st.sidebar.date_input(
     "Data Final",
-    value=df["Data"].max()
+    value=data_fim_padrao
 )
 
 df = df[
@@ -755,7 +781,32 @@ st.sidebar.write(f"👤 Usuário: {name}")
 if authentication_status:
     authenticator.logout("🚪 Logout", "sidebar")
 
+
+
 st.title("📦 Sistema Estoque")
+
+try:
+    produtos = pd.read_excel("Produtos.xlsx")
+
+    ultimos = df.sort_values("Data").groupby("Produto").last().reset_index()
+
+    alerta = ultimos.merge(produtos, on="Produto", how="left")
+
+    estoque_baixo = alerta[
+        alerta["Quantidade em Estoque"] <= alerta["Estoque Mínimo"]
+    ]
+
+    if not estoque_baixo.empty:
+
+        st.warning("⚠ Produtos com estoque baixo")
+
+        for _, row in estoque_baixo.iterrows():
+            st.write(
+                f"🔸 {row['Produto']} — Estoque: {numero_br(row['Quantidade em Estoque'])} (Mínimo: {numero_br(row['Estoque Mínimo'])})"
+            )
+
+except:
+    pass
 
 # CALCULOS
 vendas = df[df["Tipo"] == "Venda"]
@@ -776,8 +827,11 @@ except:
 
 despesa_total = despesas["Valor"].sum() if not despesas.empty else 0
 
-df_ordenado = df.sort_values("Data")
-valor_estoque = df_ordenado.iloc[-1]["Valor Total em Estoque"]
+if not df.empty:
+    df_ordenado = df.sort_values("Data")
+    valor_estoque = df_ordenado.iloc[-1]["Valor Total em Estoque"]
+else:
+    valor_estoque = 0
 
 # RESUMO
 st.divider()
@@ -812,20 +866,20 @@ if produto_selecionado:
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("🛒 Quantidade Vendida", qtd_vendida)
+        st.metric("🛒 Quantidade Vendida", numero_br(qtd_vendida))
         st.metric("💰 Valor Vendido", moeda_br(valor_vendido_prod))
 
     with col2:
-        st.metric("📥 Quantidade Comprada", qtd_comprada)
+        st.metric("📥 Quantidade Comprada", numero_br(qtd_comprada))
         st.metric("🛍️ Valor Comprado", moeda_br(valor_comprado_prod))
 
     with col3:
-        st.metric("📦 Estoque Atual", estoque_qtd)
+        st.metric("📦 Estoque Atual", numero_br(estoque_qtd))
         st.metric("💵 Valor em Estoque", moeda_br(estoque_valor))
 
 st.divider()
 st.subheader("Resumo Geral")
-col5, col6, col7 = st.columns(3)
+col5, col6, col7, col8 = st.columns(4)
 
 col5.metric("💰 Valor Total Vendido", moeda_br(valor_vendido))
 col6.metric("🛍️ Valor Total Comprado", moeda_br(valor_comprado))
@@ -833,7 +887,10 @@ col6.metric("🛍️ Valor Total Comprado", moeda_br(valor_comprado))
 ultimos_produtos = df.sort_values("Data").groupby("Produto").last()
 valore_em_estoque = ultimos_produtos["Valor Total em Estoque"].sum()
 
+total_estoque = ultimos_produtos["Quantidade em Estoque"].sum()
+
 col7.metric("💵 Valor Total em Estoque", moeda_br(valore_em_estoque))
+col8.metric("📦 Quantidade Total em Estoque", numero_br(total_estoque))
 
 
 
@@ -980,7 +1037,7 @@ with c3:
     st.subheader("⚖️ Saldo Previsto")
     st.write("*(Receber - Pagar)*")
     saldo_final = receber_total - pagar_total
-    st.metric("Resultado", moeda_br(saldo_final), delta=f"{saldo_final:,.2f}")
+    st.metric("Resultado", moeda_br(saldo_final), delta=moeda_br(saldo_final))
 
 tab1, tab2 = st.tabs(["A Receber", "A Pagar"])
 
