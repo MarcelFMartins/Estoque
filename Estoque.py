@@ -35,7 +35,11 @@ except KeyError:
 
 
 # PEGAR STATUS
-name, authentication_status, username = authenticator.login("Login", "main")
+authenticator.login(location="main")
+
+authentication_status = st.session_state.get("authentication_status")
+name = st.session_state.get("name")
+username = st.session_state.get("username")
 
 if authentication_status is False:
     st.error("Usuário ou senha incorretos")
