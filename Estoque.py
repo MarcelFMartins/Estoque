@@ -829,7 +829,11 @@ col5, col6, col7 = st.columns(3)
 
 col5.metric("💰 Valor Total Vendido", moeda_br(valor_vendido))
 col6.metric("🛍️ Valor Total Comprado", moeda_br(valor_comprado))
-col7.metric("💵 Valor Total em Estoque", moeda_br(valor_estoque))
+
+ultimos_produtos = df.sort_values("Data").groupby("Produto").last()
+valore_em_estoque = ultimos_produtos["Valor Total em Estoque"].sum()
+
+col7.metric("💵 Valor Total em Estoque", moeda_br(valore_em_estoque))
 
 
 
@@ -928,7 +932,7 @@ st.divider()
 st.title("📑 DRE")
 
 receita_total = valor_vendido
-cmv = valor_comprado - valor_estoque
+cmv = valor_comprado - valore_em_estoque
 
 lucro_bruto = receita_total - cmv
 lucro_liquido = lucro_bruto - despesa_total
