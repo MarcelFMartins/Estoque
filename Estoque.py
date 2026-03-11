@@ -22,6 +22,11 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 
+if "authentication_status" in st.session_state:
+    if st.session_state["authentication_status"] and st.session_state.get("username") not in credentials["usernames"]:
+        st.session_state.clear()
+
+# MOSTRAR LOGIN
 try:
     authenticator.login(location="main")
 except KeyError:
@@ -30,9 +35,7 @@ except KeyError:
 
 
 # PEGAR STATUS
-authentication_status = st.session_state.get("authentication_status")
-name = st.session_state.get("name")
-username = st.session_state.get("username")
+name, authentication_status, username = authenticator.login("Login", "main")
 
 if authentication_status is False:
     st.error("Usuário ou senha incorretos")
