@@ -22,6 +22,10 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 
+if "authentication_status" in st.session_state:
+    if st.session_state["authentication_status"] and st.session_state.get("username") not in credentials["usernames"]:
+        st.session_state.clear()
+
 # MOSTRAR LOGIN
 authenticator.login(location="main")
 
