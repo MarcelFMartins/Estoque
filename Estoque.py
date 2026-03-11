@@ -22,21 +22,19 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 
+# limpar sessão quebrada
 if "authentication_status" in st.session_state:
     if st.session_state["authentication_status"] and st.session_state.get("username") not in credentials["usernames"]:
         st.session_state.clear()
 
-# MOSTRAR LOGIN
+# LOGIN
 try:
     authenticator.login(location="main")
 except KeyError:
     st.session_state.clear()
     st.rerun()
 
-
 # PEGAR STATUS
-authenticator.login(location="main")
-
 authentication_status = st.session_state.get("authentication_status")
 name = st.session_state.get("name")
 username = st.session_state.get("username")
