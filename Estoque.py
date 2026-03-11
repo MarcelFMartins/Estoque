@@ -4,13 +4,17 @@ import streamlit_authenticator as stauth
 # USUÁRIOS
 credentials = {
     "usernames": {
-        "root": {
-            "name": "admin",
-            "password": "root"
+        "admin": {
+            "name": "Administrador",
+            "password": "1234"
         },
-        "Christian": {
-            "name": "Christian",
-            "password": "B2uaa5cl*"
+        "marcel": {
+            "name": "Marcel",
+            "password": "1234"
+        },
+        "matheus": {
+            "name": "Matheus",
+            "password": "1234"
         }
     }
 }
@@ -22,17 +26,9 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 
-# limpar sessão quebrada
-if "authentication_status" in st.session_state:
-    if st.session_state["authentication_status"] and st.session_state.get("username") not in credentials["usernames"]:
-        st.session_state.clear()
+# MOSTRAR LOGIN
+authenticator.login(location="main")
 
-# LOGIN
-try:
-    authenticator.login(location="main")
-except KeyError:
-    st.session_state.clear()
-    st.rerun()
 
 # PEGAR STATUS
 authentication_status = st.session_state.get("authentication_status")
