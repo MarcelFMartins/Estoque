@@ -70,7 +70,11 @@ def cadastrar_produto():
         df["Produto"] = df["Produto"].astype(str)
         df["Tipo"] = df["Tipo"].astype(str)
 
-        produtos_cadastrados = df["Produto"].dropna().unique().tolist()
+        try:
+            produtos = pd.read_excel("Produtos.xlsx")
+            produtos_cadastrados = produtos["Produto"].tolist()
+        except:
+            produtos_cadastrados = []
 
     except:
         df = pd.DataFrame(columns=[
@@ -394,68 +398,328 @@ def cadastrar_fornecedor():
         st.success("Fornecedor cadastrado")
         st.rerun()
 
-@st.dialog("Excluir Cliente ou Fornecedor")
-def excluir_contato():
+@st.dialog("Excluir Cliente")
+def excluir_cliente():
 
-    tipo = st.selectbox("Tipo", ["Cliente", "Fornecedor"])
+    try:
+        df = pd.read_excel("Clientes.xlsx")
+    except:
+        st.warning("Nenhum cliente cadastrado.")
+        return
 
-    if tipo == "Cliente":
+    cliente = st.selectbox("Selecione o cliente", df["Nome"])
+
+    if st.button("🗑 Excluir Cliente"):
+
+        df = df[df["Nome"] != cliente]
+
+        df.to_excel("Clientes.xlsx", index=False)
+
+        st.success("Cliente excluído com sucesso!")
+        st.rerun()
+
+@st.dialog("Excluir Fornecedor")
+def excluir_fornecedor():
+
+    try:
+        df = pd.read_excel("Fornecedores.xlsx")
+    except:
+        st.warning("Nenhum fornecedor cadastrado.")
+        return
+
+    fornecedor = st.selectbox("Selecione o fornecedor", df["Nome"])
+
+    if st.button("🗑 Excluir Fornecedor"):
+
+        df = df[df["Nome"] != fornecedor]
+
+        df.to_excel("Fornecedores.xlsx", index=False)
+
+        st.success("Fornecedor excluído com sucesso!")
+        st.rerun()
+
+@st.dialog("Cadastrar Produto")
+def cadastrar_produto_novo():
+
+    nome = st.text_input("Nome do Produto")
+    categoria = st.text_input("Categoria")
+    estoque_min = st.number_input("Estoque Mínimo", min_value=0)
+    unidade = st.selectbox("Unidade", ["KG","UN","CX","L"])
+
+    if st.button("Salvar Produto"):
+
+        novo = pd.DataFrame({
+            "Produto":[nome],
+            "Categoria":[categoria],
+            "Estoque Mínimo":[estoque_min],
+            "Unidade":[unidade]
+        })
 
         try:
-            df = pd.read_excel("Clientes.xlsx")
+            df = pd.read_excel("Produtos.xlsx")
+            df = pd.concat([df,novo],ignore_index=True)
         except:
-            st.warning("Nenhum cliente cadastrado.")
-            return
+            df = novo
 
-    else:
+        df.to_excel("Produtos.xlsx",index=False)
 
-        try:
-            df = pd.read_excel("Fornecedores.xlsx")
-        except:
-            st.warning("Nenhum fornecedor cadastrado.")
-            return
+        st.success("Produto cadastrado!")
+        st.rerun()
 
-    contato = st.selectbox("Selecione para excluir", df["Nome"])
+@st.dialog("Excluir Produto")
+def excluir_produto():
 
-    if st.button("🗑 Excluir"):
+    try:
+        df = pd.read_excel("Produtos.xlsx")
+    except:
+        st.warning("Nenhum produto cadastrado.")
+        return
 
-        df = df[df["Nome"] != contato]
+    produto = st.selectbox("Selecione o produto", df["Produto"])
 
-        if tipo == "Cliente":
-            df.to_excel("Clientes.xlsx", index=False)
-        else:
-            df.to_excel("Fornecedores.xlsx", index=False)
+    if st.button("🗑 Excluir Produto"):
 
-        st.success(f"{tipo} excluído com sucesso!")
+        df = df[df["Produto"] != produto]
+
+        df.to_excel("Produtos.xlsx", index=False)
+
+        st.success("Produto excluído!")
+        st.rerun()
+
+@st.dialog("Editar Produto")
+def editar_produto():
+
+    try:
+        df = pd.read_excel("Produtos.xlsx")
+    except:
+        st.warning("Nenhum produto cadastrado.")
+        return
+
+    produto = st.selectbox("Selecione o produto", df["Produto"])
+
+    if produto:
+
+        linha = df[df["Produto"] == produto].index[0]
+
+        nome = st.text_input("Nome", value=df.loc[linha,"Produto"])
+        categoria = st.text_input("Categoria", value=df.loc[linha,"Categoria"])
+        estoque_min = st.number_input(
+            "Estoque Mínimo",
+            value=int(df.loc[linha,"Estoque Mínimo"])
+        )
+        unidade = st.selectbox(
+            "Unidade",
+            ["KG","UN","CX","L"],
+            index=["KG","UN","CX","L"].index(df.loc[linha,"Unidade"])
+        )
+
+        if st.button("Salvar Alterações"):
+
+            df.loc[linha,"Produto"] = nome
+            df.loc[linha,"Categoria"] = categoria
+            df.loc[linha,"Estoque Mínimo"] = estoque_min
+            df.loc[linha,"Unidade"] = unidade
+
+            df.to_excel("Produtos.xlsx", index=False)
+
+            st.success("Produto atualizado!")
+            st.rerun()
+
+@st.dialog("Editar Movimentação")
+def editar_movimentacao():
+
+    try:
+        df = pd.read_excel(arquivo)
+        df["Data"] = pd.to_datetime(df["Data"])
+    except:
+        st.warning("Nenhuma movimentação encontrada.")
+        return
+
+    df["MovID"] = df.index
+
+    mov = st.selectbox(
+        "Selecione a movimentação",
+        df["MovID"],
+        format_func=lambda x: f'{df.loc[x,"Data"].strftime("%d/%m/%Y")} - {df.loc[x,"Produto"]} - {df.loc[x,"Tipo"]} ({df.loc[x,"Quantidade"]})'
+    )
+
+    linha = df.loc[mov]
+
+    data_mov = st.date_input("Data", value=linha["Data"])
+
+    produto = st.text_input("Produto", value=linha["Produto"])
+
+    tipo = st.selectbox(
+        "Tipo",
+        ["Compra","Venda"],
+        index=0 if linha["Tipo"]=="Compra" else 1
+    )
+
+    contato = st.text_input(
+        "Cliente/Fornecedor",
+        value=linha["Cliente/Fornecedor"]
+    )
+
+    quantidade = st.number_input(
+        "Quantidade",
+        value=int(linha["Quantidade"])
+    )
+
+    preco = st.number_input(
+        "Preço Unitário",
+        value=float(linha["Preço Unitário"])
+    )
+
+    if st.button("Salvar Alterações"):
+
+        df.loc[mov,"Data"] = data_mov
+        df.loc[mov,"Produto"] = produto
+        df.loc[mov,"Tipo"] = tipo
+        df.loc[mov,"Cliente/Fornecedor"] = contato
+        df.loc[mov,"Quantidade"] = quantidade
+        df.loc[mov,"Preço Unitário"] = preco
+        df.loc[mov,"Valor Total"] = quantidade * preco
+
+        df = recalcular_estoque(df)
+
+        df.to_excel(arquivo,index=False)
+
+        st.success("Movimentação atualizada!")
+        st.rerun()
+
+@st.dialog("Editar Despesa")
+def editar_despesa():
+
+    try:
+        df = pd.read_excel("Despesas.xlsx")
+        df["Data"] = pd.to_datetime(df["Data"])
+    except:
+        st.warning("Nenhuma despesa encontrada.")
+        return
+
+    df["DespID"] = df.index
+
+    desp = st.selectbox(
+        "Selecione a despesa",
+        df["DespID"],
+        format_func=lambda x: f'{df.loc[x,"Data"].strftime("%d/%m/%Y")} - {df.loc[x,"Descrição"]}'
+    )
+
+    linha = df.loc[desp]
+
+    data = st.date_input("Data", value=linha["Data"])
+    descricao = st.text_input("Descrição", value=linha["Descrição"])
+    categoria = st.text_input("Categoria", value=linha["Categoria"])
+    valor = st.number_input("Valor", value=float(linha["Valor"]))
+
+    if st.button("Salvar Alterações"):
+
+        df.loc[desp,"Data"] = data
+        df.loc[desp,"Descrição"] = descricao
+        df.loc[desp,"Categoria"] = categoria
+        df.loc[desp,"Valor"] = valor
+
+        df.to_excel("Despesas.xlsx",index=False)
+
+        st.success("Despesa atualizada!")
+        st.rerun()
+
+@st.dialog("Editar Cliente")
+def editar_cliente():
+
+    try:
+        df = pd.read_excel("Clientes.xlsx")
+    except:
+        st.warning("Nenhum cliente cadastrado.")
+        return
+
+    cliente = st.selectbox("Cliente", df["Nome"])
+
+    novo_nome = st.text_input("Novo Nome", value=cliente)
+
+    if st.button("Salvar Alteração"):
+
+        df.loc[df["Nome"]==cliente,"Nome"] = novo_nome
+
+        df.to_excel("Clientes.xlsx",index=False)
+
+        st.success("Cliente atualizado!")
+        st.rerun()
+
+@st.dialog("Editar Fornecedor")
+def editar_fornecedor():
+
+    try:
+        df = pd.read_excel("Fornecedores.xlsx")
+    except:
+        st.warning("Nenhum fornecedor cadastrado.")
+        return
+
+    fornecedor = st.selectbox("Fornecedor", df["Nome"])
+
+    novo_nome = st.text_input("Novo Nome", value=fornecedor)
+
+    if st.button("Salvar Alteração"):
+
+        df.loc[df["Nome"]==fornecedor,"Nome"] = novo_nome
+
+        df.to_excel("Fornecedores.xlsx",index=False)
+
+        st.success("Fornecedor atualizado!")
         st.rerun()
 
 # SIDEBAR
 
 
 
-st.sidebar.subheader("Movimentações e Despesas")
+st.sidebar.subheader("Movimentações")
 if st.sidebar.button("➕ Cadastrar Movimentação"):
     cadastrar_produto()
+
+st.sidebar.button("✏️ Editar Movimentação", on_click=editar_movimentacao)
 
 if st.sidebar.button("🗑 Excluir Movimentação"):
     excluir_movimentacao()
 
+st.sidebar.divider()
+st.sidebar.subheader("Despesas")
 if st.sidebar.button("💸 Cadastrar Despesa"):
     cadastrar_despesa()
+
+st.sidebar.button("✏️ Editar Despesa", on_click=editar_despesa)
 
 if st.sidebar.button("🗑 Excluir Despesa"):
     excluir_despesa()
 
 st.sidebar.divider()
-st.sidebar.subheader("Clientes e Fornecedores")
+st.sidebar.subheader("Clientes")
 
 if st.sidebar.button("👤 Cadastrar Cliente"):
     cadastrar_cliente()
 
+st.sidebar.button("✏️ Editar Cliente", on_click=editar_cliente)
+
+st.sidebar.button("🗑 Excluir Cliente", on_click=excluir_cliente)
+
+st.sidebar.divider()
+st.sidebar.subheader("Fornecedores")
 if st.sidebar.button("🏭 Cadastrar Fornecedor"):
     cadastrar_fornecedor()
 
-st.sidebar.button("🗑 Excluir Cliente/Fornecedor", on_click=excluir_contato)
+st.sidebar.button("✏️ Editar Fornecedor", on_click=editar_fornecedor)
+
+st.sidebar.button("🗑 Excluir Fornecedor", on_click=excluir_fornecedor)
+
+st.sidebar.divider()
+st.sidebar.subheader("Produtos")
+
+if st.sidebar.button("➕ Cadastrar Produto"):
+    cadastrar_produto_novo()
+
+st.sidebar.button("✏️ Editar Produto", on_click=editar_produto)
+
+if st.sidebar.button("🗑 Excluir Produto"):
+    excluir_produto()
 
 # SISTEMA ESTOQUE
 df = pd.read_excel(arquivo)
@@ -590,6 +854,8 @@ st.dataframe(
     hide_index=True
 )
 
+st.divider()
+
 # VENDAS POR PRODUTO
 st.title("💸 Resumo de Vendas por Produto")
 
@@ -626,6 +892,8 @@ with col2:
 
     st.altair_chart(grafico_valor, use_container_width=True)
 
+st.divider()
+
 # DESPESAS
 st.title("📉 Despesas")
 despesas_view = despesas.copy()
@@ -653,6 +921,8 @@ if not despesas.empty:
     ).properties(height=400)
 
     st.altair_chart(grafico_despesa, use_container_width=True)
+
+st.divider()
 
 # DRE
 st.title("📑 DRE")
