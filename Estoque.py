@@ -18,7 +18,7 @@ credentials = {
         },
         "christian": {
             "name": "Christian",
-            "password": "B2uaa5cl*"
+            "password": "B2uaa5cl"
         }
     }
 }
