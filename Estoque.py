@@ -101,11 +101,14 @@ def cadastrar_produto():
 
     st.info(f"Estoque atual: {numero_br(estoque_atual)}")
 
-    tipo_mov = st.selectbox("Tipo", ["Compra","Venda"])
+    tipo_mov = st.selectbox(
+        "Tipo",
+        ["Compra","Venda","Perda"]
+    )
 
 
     # CLIENTE OU FORNECEDOR
-    if tipo_mov == "Compra":
+    if tipo_mov == "Compra" or "Perda":
 
         try:
             fornecedores = pd.read_excel("Fornecedores.xlsx")
@@ -131,17 +134,42 @@ def cadastrar_produto():
 
     preco_mov = st.number_input("Preço Unitário", min_value=0.0, format="%.2f")
 
-    forma_pagamento = st.selectbox("Forma de Pagamento", ["À Vista", "A Prazo"])
+    if tipo_mov == "Perda":
+
+        forma_pagamento = "Perda"
+        parcelas = 1
+        parcelas_pagas = 1
+        data_recebimento = data_mov
+
+    else:
+        forma_pagamento = st.selectbox(
+            "Forma de Pagamento",
+            ["À Vista", "A Prazo"]
+        )
 
     if forma_pagamento == "A Prazo":
 
-        parcelas = st.number_input("Número de Parcelas", min_value=2)
+        parcelas = st.number_input(
+            "Número de Parcelas",
+            min_value=2,
+            step=1
+        )
 
-        data_recebimento = st.date_input("Data do Primeiro Vencimento")
+        parcelas_pagas = st.number_input(
+            "Parcelas já pagas",
+            min_value=0,
+            max_value=int(parcelas),
+            step=1
+        )
+
+        data_recebimento = st.date_input(
+            "Data do Primeiro Vencimento"
+        )
 
     else:
 
         parcelas = 1
+        parcelas_pagas = 1
         data_recebimento = data_mov
 
     if st.button("Salvar Cadastro"):
@@ -149,6 +177,15 @@ def cadastrar_produto():
         try:
 
             valor_total = quantidade_mov * preco_mov
+
+            valor_parcela = valor_total / parcelas
+            valor_pago = valor_parcela * parcelas_pagas
+            valor_restante = valor_total - valor_pago
+
+            if valor_restante == 0:
+                status = "Recebido" if tipo_mov == "Venda" else "Pago"
+            else:
+                status = "Pendente"
 
             nova_linha = pd.DataFrame([{
                 "Data": pd.to_datetime(data_mov),
@@ -158,10 +195,16 @@ def cadastrar_produto():
                 "Quantidade": quantidade_mov,
                 "Preço Unitário": preco_mov,
                 "Valor Total": valor_total,
+
                 "Forma Pagamento": forma_pagamento,
                 "Parcelas": parcelas,
+                "Parcelas Pagas": parcelas_pagas,
+
+                "Valor Pago": valor_pago,
+                "Valor Restante": valor_restante,
+
                 "Data Recebimento": data_recebimento,
-                "Status": "Recebido" if forma_pagamento == "À Vista" else "Pendente"
+                "Status": status
             }])
 
             df = pd.concat([df, nova_linha], ignore_index=True)
@@ -197,7 +240,12 @@ def cadastrar_produto():
                         if novo_estoque != 0 else 0
                     )
 
-                else:
+                elif tipo == "Venda":
+
+                    novo_estoque = estoque_ant - qtd
+                    custo_medio = custo_ant
+
+                elif tipo == "Perda":
 
                     novo_estoque = estoque_ant - qtd
                     custo_medio = custo_ant
@@ -310,7 +358,12 @@ def recalcular_estoque(df):
                 if novo_estoque != 0 else 0
             )
 
-        else:
+        elif tipo == "Venda":
+
+            novo_estoque = estoque_ant - qtd
+            custo_medio = custo_ant
+
+        elif tipo == "Perda":
 
             novo_estoque = estoque_ant - qtd
             custo_medio = custo_ant
@@ -592,15 +645,70 @@ def editar_movimentacao():
         value=float(linha["Preço Unitário"])
     )
 
+    forma_pagamento = st.selectbox(
+        "Forma de Pagamento",
+        ["À Vista", "A Prazo"],
+        index=0 if linha["Forma Pagamento"] == "À Vista" else 1
+    )
+
+    if forma_pagamento == "A Prazo":
+
+        parcelas = st.number_input(
+            "Parcelas",
+            min_value=1,
+            value=int(linha.get("Parcelas", 1))
+        )
+
+        parcelas_pagas = st.number_input(
+            "Parcelas Pagas",
+            min_value=0,
+            max_value=int(parcelas),
+            value=int(linha.get("Parcelas Pagas", 0))
+        )
+
+        data_recebimento = st.date_input(
+            "Data Recebimento",
+            value=pd.to_datetime(
+                linha.get("Data Recebimento", date.today())
+            )
+        )
+
+    else:
+
+        parcelas = 1
+        parcelas_pagas = 1
+        data_recebimento = data_mov
+
     if st.button("Salvar Alterações"):
+
+        preco_unit = preco  # ← garante que existe
+
+        valor_total = quantidade * preco_unit
+
+        valor_parcela = valor_total / parcelas
+        valor_pago = valor_parcela * parcelas_pagas
+        valor_restante = valor_total - valor_pago
+
+        if valor_restante == 0:
+            status = "Recebido" if tipo == "Venda" else "Pago"
+        else:
+            status = "Pendente"
 
         df.loc[mov,"Data"] = data_mov
         df.loc[mov,"Produto"] = produto
         df.loc[mov,"Tipo"] = tipo
         df.loc[mov,"Cliente/Fornecedor"] = contato
         df.loc[mov,"Quantidade"] = quantidade
-        df.loc[mov,"Preço Unitário"] = preco
-        df.loc[mov,"Valor Total"] = quantidade * preco
+        df.loc[mov,"Preço Unitário"] = preco_unit
+        df.loc[mov,"Valor Total"] = valor_total
+
+        df.loc[mov,"Forma Pagamento"] = forma_pagamento
+        df.loc[mov,"Parcelas"] = parcelas
+        df.loc[mov,"Parcelas Pagas"] = parcelas_pagas
+        df.loc[mov,"Valor Pago"] = valor_pago
+        df.loc[mov,"Valor Restante"] = valor_restante
+        df.loc[mov,"Data Recebimento"] = data_recebimento
+        df.loc[mov,"Status"] = status
 
         df = recalcular_estoque(df)
 
@@ -749,7 +857,15 @@ try:
 except:
     df = pd.DataFrame()
 
-colunas_novas = ["Forma Pagamento","Parcelas","Data Recebimento","Status"]
+colunas_novas = [
+    "Forma Pagamento",
+    "Parcelas",
+    "Parcelas Pagas",
+    "Valor Pago",
+    "Valor Restante",
+    "Data Recebimento",
+    "Status"
+]
 
 for col in colunas_novas:
     if col not in df.columns:
@@ -841,18 +957,16 @@ if not df.empty:
 else:
     valor_estoque = 0
 
-# RESUMO
 st.divider()
 
 st.subheader("Análise por Produto")
-
-produtos = df["Produto"].unique()
 
 produto_selecionado = st.selectbox(
     "Selecione o produto",
     produtos,
     index=None,
-    placeholder="Escolha um produto"
+    placeholder="Escolha um produto",
+    key="analise_produto"
 )
 
 if produto_selecionado:
@@ -861,6 +975,7 @@ if produto_selecionado:
 
     vendas_prod = df_prod[df_prod["Tipo"] == "Venda"]
     compras_prod = df_prod[df_prod["Tipo"] == "Compra"]
+    perdas_prod = df_prod[df_prod["Tipo"] == "Perda"]
 
     qtd_vendida = vendas_prod["Quantidade"].sum()
     valor_vendido_prod = vendas_prod["Valor Total"].sum()
@@ -868,10 +983,17 @@ if produto_selecionado:
     qtd_comprada = compras_prod["Quantidade"].sum()
     valor_comprado_prod = compras_prod["Valor Total"].sum()
 
-    estoque_qtd = df_prod.sort_values("Data").iloc[-1]["Quantidade em Estoque"]
-    estoque_valor = df_prod.sort_values("Data").iloc[-1]["Valor Total em Estoque"]
+    qtd_perdida = perdas_prod["Quantidade"].sum()
+    valor_perdido_prod = perdas_prod["Valor Total"].sum()
 
-    col1, col2, col3 = st.columns(3)
+    if not df_prod.empty:
+        estoque_qtd = df_prod.sort_values("Data").iloc[-1]["Quantidade em Estoque"]
+        estoque_valor = df_prod.sort_values("Data").iloc[-1]["Valor Total em Estoque"]
+    else:
+        estoque_qtd = 0
+        estoque_valor = 0
+
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric("🛒 Quantidade Vendida", numero_br(qtd_vendida))
@@ -884,6 +1006,10 @@ if produto_selecionado:
     with col3:
         st.metric("📦 Estoque Atual", numero_br(estoque_qtd))
         st.metric("💵 Valor em Estoque", moeda_br(estoque_valor))
+
+    with col4:
+        st.metric("⚠️ Quantidade Perdida", numero_br(qtd_perdida))
+        st.metric("💸 Valor Perdido", moeda_br(valor_perdido_prod))
 
 st.divider()
 st.subheader("Resumo Geral")
@@ -900,7 +1026,27 @@ total_estoque = ultimos_produtos["Quantidade em Estoque"].sum()
 col7.metric("💵 Valor Total em Estoque", moeda_br(valore_em_estoque))
 col8.metric("📦 Quantidade Total em Estoque", numero_br(total_estoque))
 
+st.divider()
+st.subheader("Perdas Geral")
 
+perdas = df[df["Tipo"] == "Perda"]
+
+valor_perdido_total = perdas["Valor Total"].sum()
+qtd_perdida_total = perdas["Quantidade"].sum()
+
+colp1, colp2 = st.columns(2)
+
+with colp2:
+    st.metric(
+        "⚠️ Quantidade Total Perdida",
+        numero_br(qtd_perdida_total)
+    )
+
+with colp1:
+    st.metric(
+        "💸 Valor Total Perdido",
+        moeda_br(valor_perdido_total)
+    )
 
 # TABELA
 df_view = df.copy()
@@ -997,17 +1143,20 @@ st.divider()
 st.title("📑 DRE")
 
 receita_total = valor_vendido
+perdas = df[df["Tipo"] == "Perda"]["Valor Total"].sum()
+
 cmv = valor_comprado - valore_em_estoque
 
 lucro_bruto = receita_total - cmv
-lucro_liquido = lucro_bruto - despesa_total
+lucro_liquido = lucro_bruto - despesa_total - perdas
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 col1.metric("💰 Receita", moeda_br(receita_total))
 col2.metric("📦 Custo das Compras", moeda_br(cmv))
 col3.metric("📉 Despesas", moeda_br(despesa_total))
-col4.metric("📈 Lucro Líquido", moeda_br(lucro_liquido))
+col4.metric("⚠️ Perdas", moeda_br(valor_perdido_total))
+col5.metric("📈 Lucro Líquido", moeda_br(lucro_liquido))
 
 # CONTAS A PAGAR E RECEBER
 st.divider()
@@ -1022,9 +1171,9 @@ pago = df[(df["Tipo"] == "Compra") & (df["Status"] == "Pago")]
 despesas_pendentes = despesas[despesas["Status"] == "Pendente"]
 despesas_pagas = despesas[despesas["Status"] == "Pago"]
 
-receber_total = receber["Valor Total"].sum()
+receber_total = receber["Valor Restante"].sum()
 
-pagar_compras = pagar["Valor Total"].sum()
+pagar_compras = pagar["Valor Restante"].sum()
 pagar_despesas = despesas_pendentes["Valor"].sum()
 
 pagar_total = pagar_compras + pagar_despesas
