@@ -612,6 +612,18 @@ def editar_movimentacao():
 
     df["MovID"] = df.index
 
+    try:
+        df_clientes = pd.read_excel("Clientes.xlsx")
+        lista_clientes = df_clientes["Nome"].dropna().unique().tolist()
+    except:
+        lista_clientes = []
+
+    try:
+        df_fornec = pd.read_excel("Fornecedores.xlsx")
+        lista_fornec = df_fornec["Nome"].dropna().unique().tolist()
+    except:
+        lista_fornec = []
+
     mov = st.selectbox(
         "Selecione a movimentação",
         df["MovID"],
@@ -624,16 +636,62 @@ def editar_movimentacao():
 
     produto = st.text_input("Produto", value=linha["Produto"])
 
+    tipos = ["Compra","Venda","Perda"]
+
     tipo = st.selectbox(
         "Tipo",
-        ["Compra","Venda"],
-        index=0 if linha["Tipo"]=="Compra" else 1
+        tipos,
+        index=tipos.index(linha["Tipo"]) if linha["Tipo"] in tipos else 0
     )
 
-    contato = st.text_input(
-        "Cliente/Fornecedor",
-        value=linha["Cliente/Fornecedor"]
-    )
+    if tipo == "Compra":
+    
+        opcoes = lista_fornec
+
+        if linha["Cliente/Fornecedor"] in opcoes:
+            idx = opcoes.index(linha["Cliente/Fornecedor"])
+        else:
+            idx = 0 if opcoes else None
+
+        contato = st.selectbox(
+            "Fornecedor",
+            opcoes,
+            index=idx if opcoes else None,
+            key="edit_fornec"
+        )
+
+
+    elif tipo == "Venda":
+
+        opcoes = lista_clientes
+
+        if linha["Cliente/Fornecedor"] in opcoes:
+            idx = opcoes.index(linha["Cliente/Fornecedor"])
+        else:
+            idx = 0 if opcoes else None
+
+        contato = st.selectbox(
+            "Cliente",
+            opcoes,
+            index=idx if opcoes else None,
+            key="edit_cli"
+        )
+
+    elif tipo == "Perda":
+
+        opcoes = lista_fornec
+
+        if linha["Cliente/Fornecedor"] in opcoes:
+            idx = opcoes.index(linha["Cliente/Fornecedor"])
+        else:
+            idx = 0 if opcoes else None
+
+        contato = st.selectbox(
+            "Fornecedor",
+            opcoes,
+            index=idx if opcoes else None,
+            key="edit_fornec"
+        )
 
     quantidade = st.number_input(
         "Quantidade",
@@ -726,6 +784,12 @@ def editar_despesa():
     except:
         st.warning("Nenhuma despesa encontrada.")
         return
+    
+    try:
+        df_fornec = pd.read_excel("Fornecedores.xlsx")
+        lista_fornec = df_fornec["Nome"].dropna().unique().tolist()
+    except:
+        lista_fornec = []
 
     df["DespID"] = df.index
 
@@ -738,17 +802,45 @@ def editar_despesa():
     linha = df.loc[desp]
 
     data = st.date_input("Data", value=linha["Data"])
-    descricao = st.text_input("Descrição", value=linha["Descrição"])
-    categoria = st.text_input("Categoria", value=linha["Categoria"])
-    valor = st.number_input("Valor", value=float(linha["Valor"]))
+    descricao = st.text_input(
+        "Descrição",
+        value=linha.get("Descrição","")
+    )
+
+    categoria = st.text_input(
+        "Categoria",
+        value=linha.get("Categoria","")
+    )
+
+
+    # ===== FORNECEDOR SELECT =====
+
+    fornecedor_atual = linha.get("Fornecedor","")
+
+    if fornecedor_atual in lista_fornec:
+        idx = lista_fornec.index(fornecedor_atual)
+    else:
+        idx = 0 if lista_fornec else None
+
+    fornecedor = st.selectbox(
+        "Fornecedor",
+        lista_fornec,
+        index=idx if lista_fornec else None,
+        key="edit_desp_fornec"
+    )
+
+
+    valor = st.number_input(
+        "Valor",
+        value=float(linha["Valor"])
+    )
 
     if st.button("Salvar Alterações"):
 
-        df.loc[desp,"Data"] = data
         df.loc[desp,"Descrição"] = descricao
         df.loc[desp,"Categoria"] = categoria
+        df.loc[desp,"Fornecedor"] = fornecedor
         df.loc[desp,"Valor"] = valor
-
         df.to_excel("Despesas.xlsx",index=False)
 
         st.success("Despesa atualizada!")
